@@ -1,137 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import forge from 'node-forge';
+import {
+  Song,
+  Album,
+  Artist,
+  Playlist,
+  SearchResult
+} from './types';
 
-// ─── Data Models & Interfaces ────────────────────────────────────────────────
-
-export interface ImageLink {
-  quality: string;
-  url: string;
-}
-
-export interface DownloadLink {
-  quality: string;
-  url: string;
-}
-
-export interface ArtistInfo {
-  id: string;
-  name: string;
-  role: string;
-  type: string;
-  image: ImageLink[];
-  url: string;
-}
-
-export interface Artists {
-  primary: ArtistInfo[];
-  featured: ArtistInfo[];
-  all: ArtistInfo[];
-}
-
-export interface AlbumInfo {
-  id: string;
-  name: string;
-  url: string;
-}
-
-export interface Song {
-  id: string;
-  name: string;
-  subtitle: string;
-  type: string;
-  language: string;
-  year: number | null;
-  playCount: number | null;
-  duration: number | null;
-  explicitContent: boolean;
-  hasLyrics: boolean;
-  artists: Artists;
-  album: AlbumInfo | null;
-  image: ImageLink[];
-  downloadUrl: DownloadLink[];
-  mp3Urls: Record<string, { quality: string; url: string }> | null;
-  url: string;
-  copyright: string | null;
-  label: string | null;
-  releaseDate: string | null;
-}
-
-export interface Album {
-  id: string;
-  name: string;
-  subtitle: string;
-  type: string;
-  language: string;
-  year: number | null;
-  playCount: number | null;
-  explicitContent: boolean;
-  artists: Artists;
-  songCount: number;
-  url: string;
-  image: ImageLink[];
-  songs: Song[];
-}
-
-export interface Playlist {
-  id: string;
-  name: string;
-  description: string | null;
-  year: number | null;
-  type: string;
-  playCount: number | null;
-  language: string;
-  explicitContent: boolean;
-  songCount: number | null;
-  url: string;
-  image: ImageLink[];
-  songs: Song[];
-  artists: ArtistInfo[];
-}
-
-export interface Artist {
-  id: string;
-  name: string;
-  type: string;
-  description: string | null;
-  image: ImageLink[];
-  url: string;
-  followerCount: number | null;
-  fanCount: number | null;
-  isVerified: boolean;
-  dominantLanguage: string | null;
-  dominantType: string | null;
-  bio: string | null;
-  dob: string | null;
-  fb: string | null;
-  twitter: string | null;
-  wiki: string | null;
-  availableLanguages: string[];
-  isRadioPresent: boolean;
-  topSongs: Song[];
-  topAlbums: Album[];
-  singles: Song[];
-  featuredPlaylists: any[];
-  dedicatedPlaylists: any[];
-  similarArtists: any[];
-  urls: any;
-  topEpisodes: any[];
-}
-
-export interface SearchSection {
-  results: any[];
-  position: number;
-}
-
-export interface SearchResult {
-  albums?: SearchSection;
-  songs?: SearchSection;
-  artists?: SearchSection;
-  playlists?: SearchSection;
-  topQuery?: SearchSection;
-  topResult?: any[];
-}
-
-// ─── API Client Implementation ───────────────────────────────────────────────
+export * from './types';
 
 const ENDPOINTS = {
   search: {
@@ -161,6 +38,9 @@ const ENDPOINTS = {
   trending: 'content.getTrending'
 } as const;
 
+/**
+ * Client for interacting with the reverse-engineered JioSaavn API.
+ */
 export class JioSaavnAPI {
   private baseUrls: string[] = [];
   private currentUrlIndex = 0;
@@ -173,6 +53,25 @@ export class JioSaavnAPI {
    */
   constructor(baseUrls: string[] = ["https://www.jiosaavn.com/api.php"]) {
     this.baseUrls = baseUrls;
+  }
+
+  /**
+   * Exposes the core DES-ECB URL decryption algorithm used by JioSaavn.
+   * 
+   * @param encryptedUrl The encrypted base64 string from the API (e.g. `encrypted_media_url`).
+   * @returns The decrypted direct audio stream URL.
+   */
+  public static decryptUrl(encryptedUrl: string): string {
+    const key = '38346591';
+    const iv = '00000000';
+
+    const encrypted = forge.util.decode64(encryptedUrl);
+    const decipher = forge.cipher.createDecipher('DES-ECB', forge.util.createBuffer(key));
+    decipher.start({ iv: forge.util.createBuffer(iv) });
+    decipher.update(forge.util.createBuffer(encrypted));
+    decipher.finish();
+    
+    return decipher.output.getBytes().replace(/\0/g, '').trim().replace('http:', 'https:');
   }
 
   /**
@@ -225,6 +124,11 @@ export class JioSaavnAPI {
     this.currentUrlIndex = (this.currentUrlIndex + 1) % this.baseUrls.length;
   }
 
+  /**
+   * Performs an autocomplete search across all categories (songs, albums, artists, playlists).
+   * 
+   * @param query The search keyword.
+   */
   async searchAll(query: string): Promise<SearchResult> {
     const data = await this.fetch(ENDPOINTS.search.all, { query });
 
@@ -252,6 +156,13 @@ export class JioSaavnAPI {
     };
   }
 
+  /**
+   * Performs a comprehensive search query, executing parallel search requests for all categories.
+   * 
+   * @param query The search query.
+   * @param page The results page offset (0-indexed).
+   * @param limit The results limit per page.
+   */
   async searchAllFull(query: string, page = 0, limit = 20): Promise<SearchResult> {
     const isDirectId = /^[a-zA-Z0-9]{5,15}$/.test(query) && !query.includes(' ');
 
@@ -296,6 +207,13 @@ export class JioSaavnAPI {
     };
   }
 
+  /**
+   * Search for songs.
+   * 
+   * @param query The search keyword.
+   * @param page The results page offset.
+   * @param limit The results count limit.
+   */
   async searchSongs(query: string, page = 0, limit = 20): Promise<{ total: number, start: number, results: Song[] }> {
     const data = await this.fetch(ENDPOINTS.search.songs, {
       q: query,
@@ -311,6 +229,13 @@ export class JioSaavnAPI {
     };
   }
 
+  /**
+   * Search for albums.
+   * 
+   * @param query The search keyword.
+   * @param page The results page offset.
+   * @param limit The results count limit.
+   */
   async searchAlbums(query: string, page = 0, limit = 20): Promise<{ total: number, start: number, results: Album[] }> {
     const data = await this.fetch(ENDPOINTS.search.albums, {
       q: query,
@@ -326,6 +251,13 @@ export class JioSaavnAPI {
     };
   }
 
+  /**
+   * Search for artists.
+   * 
+   * @param query The search keyword.
+   * @param page The results page offset.
+   * @param limit The results count limit.
+   */
   async searchArtists(query: string, page = 0, limit = 20): Promise<{ total: number, start: number, results: any[] }> {
     const data = await this.fetch(ENDPOINTS.search.artists, {
       q: query,
@@ -341,6 +273,13 @@ export class JioSaavnAPI {
     };
   }
 
+  /**
+   * Search for playlists.
+   * 
+   * @param query The search keyword.
+   * @param page The results page offset.
+   * @param limit The results count limit.
+   */
   async searchPlaylists(query: string, page = 0, limit = 20): Promise<{ total: number, start: number, results: any[] }> {
     const data = await this.fetch(ENDPOINTS.search.playlists, {
       q: query,
@@ -355,6 +294,11 @@ export class JioSaavnAPI {
     };
   }
 
+  /**
+   * Retrieve song objects by comma-separated song IDs.
+   * 
+   * @param songIds Comma-separated list of song IDs.
+   */
   async getSongById(songIds: string): Promise<Song[]> {
     const data = await this.fetch(ENDPOINTS.songs.id, {
       pids: songIds,
@@ -363,6 +307,11 @@ export class JioSaavnAPI {
     return data.songs?.map((song: any) => this.transformSong(song)) || [];
   }
 
+  /**
+   * Fetch album details and tracks by album ID.
+   * 
+   * @param albumId The album ID.
+   */
   async getAlbumById(albumId: string): Promise<Album> {
     const data = await this.fetch(ENDPOINTS.albums.id, {
       cc: 'in',
@@ -372,6 +321,11 @@ export class JioSaavnAPI {
     return this.transformAlbum(data);
   }
 
+  /**
+   * Fetch artist profile, singles, top songs, similar artists, and details by artist ID.
+   * 
+   * @param artistId The artist ID.
+   */
   async getArtistById(artistId: string): Promise<Artist> {
     const isToken = /^[a-zA-Z0-9_-]+$/.test(artistId) && isNaN(Number(artistId));
 
@@ -391,6 +345,13 @@ export class JioSaavnAPI {
     return this.transformArtist(data);
   }
 
+  /**
+   * Fetch songs of a specific artist.
+   * 
+   * @param artistId The artist ID.
+   * @param page Results offset (0-indexed).
+   * @param limit Results count limit.
+   */
   async getArtistSongs(artistId: string, page = 0, limit = 20, sortBy = 'popularity', sortOrder = 'desc') {
     const data = await this.fetch(ENDPOINTS.artists.songs, {
       artistId,
@@ -406,6 +367,13 @@ export class JioSaavnAPI {
     return data;
   }
 
+  /**
+   * Fetch albums of a specific artist.
+   * 
+   * @param artistId The artist ID.
+   * @param page Results offset (0-indexed).
+   * @param limit Results count limit.
+   */
   async getArtistAlbums(artistId: string, page = 0, limit = 20, sortBy = 'popularity', sortOrder = 'desc') {
     const data = await this.fetch(ENDPOINTS.artists.albums, {
       artistId,
@@ -421,6 +389,11 @@ export class JioSaavnAPI {
     return data;
   }
 
+  /**
+   * Fetch playlist details and tracks by playlist ID.
+   * 
+   * @param playlistId The playlist ID.
+   */
   async getPlaylistById(playlistId: string): Promise<Playlist> {
     const data = await this.fetch(ENDPOINTS.playlists.id, {
       listid: playlistId,
@@ -429,11 +402,21 @@ export class JioSaavnAPI {
     return this.transformPlaylist(data);
   }
 
+  /**
+   * Fetch lyrics of a song by song ID.
+   * 
+   * @param songId The song ID.
+   */
   async getSongLyrics(songId: string) {
     const data = await this.fetch(ENDPOINTS.songs.lyrics, { lyrics_id: songId });
     return data;
   }
 
+  /**
+   * Fetch radio station details for a song.
+   * 
+   * @param songId The song ID.
+   */
   async getSongStation(songId: string) {
     const data = await this.fetch(ENDPOINTS.songs.station, {
       entity_id: songId,
@@ -442,6 +425,9 @@ export class JioSaavnAPI {
     return data;
   }
 
+  /**
+   * Fetch browse landing modules (New Releases, Charts, Radio, Podcasts, Trending).
+   */
   async getBrowseModules() {
     const data = await this.fetch(ENDPOINTS.modules, { ctx: 'web6dot0', n: 20 });
     return this.transformModules(data);
@@ -497,6 +483,9 @@ export class JioSaavnAPI {
     };
   }
 
+  /**
+   * Fetch current global trending modules.
+   */
   async getTrending() {
     const data = await this.fetch(ENDPOINTS.trending, { ctx: 'web6dot0', n: 20 });
 
@@ -773,19 +762,11 @@ export class JioSaavnAPI {
         { id: '_320', bitrate: '320kbps' }
       ];
 
-      const key = '38346591';
-      const iv = '00000000';
-
-      const encrypted = forge.util.decode64(encryptedMediaUrl);
-      const decipher = forge.cipher.createDecipher('DES-ECB', forge.util.createBuffer(key));
-      decipher.start({ iv: forge.util.createBuffer(iv) });
-      decipher.update(forge.util.createBuffer(encrypted));
-      decipher.finish();
-      const decryptedLink = decipher.output.getBytes().replace(/\0/g, '').trim();
+      const decryptedLink = JioSaavnAPI.decryptUrl(encryptedMediaUrl);
 
       return qualities.map((quality) => ({
         quality: quality.bitrate,
-        url: decryptedLink.replace(/_(12|48|96|160|320)/, quality.id).replace('http:', 'https:')
+        url: decryptedLink.replace(/_(12|48|96|160|320)/, quality.id)
       }));
     } catch (error) {
       return [
