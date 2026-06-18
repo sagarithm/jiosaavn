@@ -101,5 +101,13 @@ All requests are `GET` requests and should specify the following base query para
 - Support for PWA and edge environments.
 - Failover proxy rotation logic.
 
+## 👥 Credits & Reverse Engineering
+
+This API was reverse-engineered, documented, and packaged by:
+- **Sagar Kewat (@sagarithm)** — [GitHub](https://github.com/sagarithm)
+- **Pixartual Studio** — [Website](https://pixartual.com)
+
+If this reverse engineering specification or client helps you in your projects, please consider dropping a star! ⭐
+
 ## ⚖ License
 Licensed under the Apache License 2.0. See [LICENSE](./LICENSE) for details.
