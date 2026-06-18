@@ -33,7 +33,7 @@
     "reverse-engineering",
     "typescript"
   ],
-  "author": "Sagar Kewat (@sagarithm) & Chirag Vishwakarma (Pixartual Studio)",
+  "author": "Sagar Kewat & Chirag Vishwakarma",
   "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/sagarithm/jiosaavn/issues"

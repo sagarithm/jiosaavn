@@ -159,9 +159,8 @@ All requests are `GET` requests and should specify the following base query para
 ## 👥 Credits & Reverse Engineering
 
 This API was reverse-engineered, documented, and packaged by:
-- **Sagar Kewat (@sagarithm)**
+- **Sagar Kewat**
 - **Chirag Vishwakarma**
-- **Pixartual Studio** — [Website](https://pixartual.studio)
 
 If this reverse engineering specification or client helps you in your projects, please consider dropping a star! ⭐
 
